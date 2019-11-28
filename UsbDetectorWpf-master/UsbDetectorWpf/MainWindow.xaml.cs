@@ -6,16 +6,25 @@ using System.Diagnostics;
 
 
 
+
 namespace UsbDetectorWpf
 {
     /// <summary>
     /// An Application extending UsbDetectorWpf From https://github.com/dtwk1/UsbDetectorWpf, and using libimobiledevice and adb modules 
-    /// to get device info and saving it into a php backend
+    /// to get device info and saving it into a php backend by Carlo JS Nayve
     /// </summary>
     public partial class MainWindow : Window
     {
         private IntPtr windowHandle;
         private string postURL = "https://portal-ca.sbe-ltd.ca/screening_new/device_info/actions.php";
+        private string imei;
+        private string serialNumber;
+        private string oem;
+        private string model;
+        private string workStation = System.Environment.MachineName;
+        private string softwareVersion;
+        private string color;
+        private string capacity;
 
         public MainWindow()
         {
@@ -56,6 +65,7 @@ namespace UsbDetectorWpf
                         modelTextBox.Text = "";
                         colorTextBox.Text = "";
                         capacityTextBox.Text = "";
+                        softwareVersionTextBox.Text = "";
                         //this.DeviceChanged?.Invoke(this, DeviceChange.Remove);
                         //OnThresholdReached();
                         break;
@@ -68,14 +78,61 @@ namespace UsbDetectorWpf
                             string androidResult = ExecuteCommandSync("wmic path Win32_PnPEntity where \" Description like 'ADB%' \" get /value");                            
                             if (androidResult.Length > 9)
                             {
+                                // query to parse service call to get imei
                                 string imei_query = "\"service call iphonesubinfo 1 | grep -o '[0-9a-f]\\{8\\} ' | tail -n+3 | while read a; do echo -n \\\\u${a:4:4}\\\\u${a:0:4}; done\"";
+                                oem = ExecuteAndroidDeviceInfo("getprop ro.product.vendor.manufacturer");
+                                imei = ExecuteAndroidDeviceInfo(imei_query);
+                                imei = imei.Trim();                                
+                                serialNumber = ExecuteAndroidDeviceInfo("getprop ro.serialno");
 
 
-                                string start = ExecuteAndroidDeviceInfo(imei_query);
-                                //string imei = ExecuteAndroidDeviceInfo("adb shell \"service call iphonesubinfo 1 | toybox cut -d \"'\" -f2 | toybox grep -Eo '[0-9]' | toybox xargs | toybox sed 's/\ //g'");
-                                imeiTextBox.Text = imei_query;
-                                MessageBox.Show(start);
+                                if (oem.Trim() == "HUAWEI")
+                                {
+                                    model = ExecuteAndroidDeviceInfo("getprop ro.product.model");
+                                }
+                                else 
+                                {
+                                    model = ExecuteAndroidDeviceInfo("getprop ro.product.vendor.model");
+                                }
 
+                                if (oem.Trim() == "Google")
+                                {
+                                    color = ExecuteAndroidDeviceInfo("getprop ro.boot.hardware.color");
+                                    capacity = ExecuteAndroidDeviceInfo("getprop ro.boot.hardware.ufs");
+                                }
+                                else 
+                                {
+                                    string getCapacity  = ExecuteAndroidDeviceInfo("df -h");
+                                    capacity = CapacityCalculator.CalculateCapacity(getCapacity);
+
+                                    //MessageBox.Show(capacity_arr[capacity_arr_length]);
+                                }
+                                
+                                
+                                //MessageBox.Show(start);
+
+                                if (oem.Trim() == "samsung")
+                                {
+                                    softwareVersion = ExecuteAndroidDeviceInfo("getprop ro.bootloader");
+                                    //MessageBox.Show("samsung device");
+                                }
+                                else if(oem.Trim() == "HUAWEI")
+                                {
+                                    softwareVersion = ExecuteAndroidDeviceInfo("getprop ro.build.display.id");
+                                }
+                                else
+                                {
+                                    softwareVersion = ExecuteAndroidDeviceInfo("getprop ro.build.id");
+                                    
+                                }
+                                //output to wpf
+                                imeiTextBox.Text = imei;
+                                softwareVersionTextBox.Text = softwareVersion;
+                                modelTextBox.Text = model;
+                                oemTextBox.Text = oem;
+                                serialNumberTextBox.Text = serialNumber;
+                                colorTextBox.Text = color;
+                                capacityTextBox.Text = capacity;
                             }
                             else 
                             {
@@ -85,20 +142,17 @@ namespace UsbDetectorWpf
                         else 
                         {
                             // It means an apple device is connected
-                            string imei = ExecuteAppleDeviceInfo("ideviceinfo -k  InternationalMobileEquipmentIdentity");
-                            
+                            imei = ExecuteAppleDeviceInfo("ideviceinfo -k  InternationalMobileEquipmentIdentity");                            
                             // Outputs imei into imei textbox
                             imeiTextBox.Text = imei;
-
-                            string serialNumber = ExecuteAppleDeviceInfo("ideviceinfo -k SerialNumber");
+                            serialNumber = ExecuteAppleDeviceInfo("ideviceinfo -k SerialNumber");
                             serialNumberTextBox.Text = serialNumber;
                             //MessageBox.Show(appleDeviceInfo);
-                            string oem = "Apple";
+                            oem = "Apple";
                             oemTextBox.Text = oem;
-                            string model = ExecuteAppleDeviceInfo("ideviceinfo -k ModelNumber");
-                            modelTextBox.Text = model;                            
-                            string workStation = System.Environment.MachineName;
-                            string softwareVersion = ExecuteAppleDeviceInfo("ideviceinfo -k ProductVersion");
+                            model = ExecuteAppleDeviceInfo("ideviceinfo -k ModelNumber");
+                            modelTextBox.Text = model; 
+                            softwareVersion = ExecuteAppleDeviceInfo("ideviceinfo -k ProductVersion");
                             softwareVersionTextBox.Text = softwareVersion;
                             //string[] capacityArray = capacityResult.Split();
                             //MessageBox.Show(capacityResult);

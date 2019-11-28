@@ -60,6 +60,7 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="callToPHP.cs" />
+    <Compile Include="CapacityCalculator.cs" />
     <Compile Include="Converter.cs" />
     <Compile Include="DeviceChangeBehavior.cs" />
     <Compile Include="DeviceNotification.cs" />
